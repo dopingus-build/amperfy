@@ -28,8 +28,8 @@ public enum BackenApiType: Int {
     case ampache = 1
     case subsonic = 2
     case subsonic_legacy = 3
-
-    public var description : String {
+    
+    public var description: String {
         switch self {
         case .notDetected: return "NotDetected"
         case .ampache: return "Ampache"
@@ -38,7 +38,7 @@ public enum BackenApiType: Int {
         }
     }
     
-    public var selectorDescription : String {
+    public var selectorDescription: String {
         switch self {
         case .notDetected: return "Auto-Detect"
         case .ampache: return "Ampache"
@@ -134,17 +134,14 @@ public class XMLParserResponseError: ResponseError {
         super.init(message: "XML response could not be parsed.", cleansedURL: cleansedURL, data: data)
     }
     
-    public override var errorDescription: String? {
+    override public var errorDescription: String? {
         return "\(message)"
     }
 }
 
-public class ResourceNotAvailableResponseError: ResponseError {
-}
-
+public class ResourceNotAvailableResponseError: ResponseError {}
 
 public class BackendProxy {
-    
     private let log = OSLog(subsystem: "Amperfy", category: "BackendProxy")
     private let networkMonitor: NetworkMonitorFacade
     private let performanceMonitor: ThreadPerformanceMonitor
@@ -173,15 +170,15 @@ public class BackendProxy {
             return subsonicLegacyApi
         }
     }
- 
-    private lazy var ampacheApi: BackendApi = {
-        return AmpacheApi(ampacheXmlServerApi: AmpacheXmlServerApi(performanceMonitor: self.performanceMonitor, eventLogger: eventLogger, persistentStorage: persistentStorage), networkMonitor: networkMonitor, performanceMonitor: performanceMonitor, eventLogger: eventLogger)
-    }()
+    
+    private lazy var ampacheApi: BackendApi = AmpacheApi(ampacheXmlServerApi: AmpacheXmlServerApi(performanceMonitor: self.performanceMonitor, eventLogger: eventLogger, persistentStorage: persistentStorage), networkMonitor: networkMonitor, performanceMonitor: performanceMonitor, eventLogger: eventLogger)
+
     private lazy var subsonicApi: BackendApi = {
         let api = SubsonicApi(subsonicServerApi: SubsonicServerApi(performanceMonitor: self.performanceMonitor, eventLogger: eventLogger, persistentStorage: persistentStorage), networkMonitor: networkMonitor, performanceMonitor: performanceMonitor, eventLogger: eventLogger)
         api.authType = .autoDetect
         return api
     }()
+
     private lazy var subsonicLegacyApi: BackendApi = {
         let api = SubsonicApi(subsonicServerApi: SubsonicServerApi(performanceMonitor: self.performanceMonitor, eventLogger: eventLogger, persistentStorage: persistentStorage), networkMonitor: networkMonitor, performanceMonitor: performanceMonitor, eventLogger: eventLogger)
         api.authType = .legacy
@@ -194,12 +191,12 @@ public class BackendProxy {
         self.eventLogger = eventLogger
         self.persistentStorage = persistentStorage
     }
-
+    
     public func login(apiType: BackenApiType, credentials: LoginCredentials) -> Promise<BackenApiType> {
         return firstly {
             checkServerReachablity(credentials: credentials)
         }.then {
-            return Promise<BackenApiType> { seal in
+            Promise<BackenApiType> { seal in
                 var apiFound = BackenApiType.notDetected
                 firstly { () -> Guarantee<Void> in
                     if apiFound == .notDetected && (apiType == .notDetected || apiType == .ampache) {
@@ -208,10 +205,10 @@ public class BackendProxy {
                                 self.ampacheApi.isAuthenticationValid(credentials: credentials)
                             }.done {
                                 apiFound = .ampache
-                            }.catch { error in
+                            }.catch { _ in
                                 // error -> ignore this api and check the others
                             }.finally {
-                                apiSeal(Void())
+                                apiSeal(())
                             }
                         }
                     } else {
@@ -224,10 +221,10 @@ public class BackendProxy {
                                 self.subsonicApi.isAuthenticationValid(credentials: credentials)
                             }.done {
                                 apiFound = .subsonic
-                            }.catch { error in
+                            }.catch { _ in
                                 // error -> ignore this api and check the others
                             }.finally {
-                                apiSeal(Void())
+                                apiSeal(())
                             }
                         }
                     } else {
@@ -240,10 +237,10 @@ public class BackendProxy {
                                 self.subsonicLegacyApi.isAuthenticationValid(credentials: credentials)
                             }.done {
                                 apiFound = .subsonic_legacy
-                            }.catch { error in
+                            }.catch { _ in
                                 // error -> ignore this api and check the others
                             }.finally {
-                                apiSeal(Void())
+                                apiSeal(())
                             }
                         }
                     } else {
@@ -269,20 +266,21 @@ public class BackendProxy {
             let sessionConfig = URLSessionConfiguration.default
             let session = URLSession(configuration: sessionConfig)
             let request = URLRequest(url: serverUrl)
-            let task = session.downloadTask(with: request) { (tempLocalUrl, response, error) in
+            let task = session.downloadTask(with: request) { _, response, error in
                 if let error = error {
                     seal.reject(AuthenticationError.downloadError(message: error.localizedDescription))
                 } else {
                     if let statusCode = (response as? HTTPURLResponse)?.statusCode {
                         if statusCode >= 400,
-                        // ignore 401 Unauthorized (RFC 7235) status code
-                        // -> Can occure if root website requires http basic authentication,
-                        //    but the REST API endpoints are reachable without http basic authentication
-                        statusCode != 401 {
+                           // ignore 401 Unauthorized (RFC 7235) status code
+                           // -> Can occure if root website requires http basic authentication,
+                           //    but the REST API endpoints are reachable without http basic authentication
+                           statusCode != 401
+                        {
                             seal.reject(AuthenticationError.requestStatusError(message: "\(statusCode)"))
                         } else {
                             os_log("Server url is reachable. Status code: %d", log: self.log, type: .info, statusCode)
-                            seal.fulfill(Void())
+                            seal.fulfill(())
                         }
                     }
                 }
@@ -290,11 +288,9 @@ public class BackendProxy {
             task.resume()
         }
     }
-
 }
-    
+
 extension BackendProxy: BackendApi {
-  
     public var clientApiVersion: String {
         return activeApi.clientApiVersion
     }
@@ -307,10 +303,14 @@ extension BackendProxy: BackendApi {
         return activeApi.isStreamingTranscodingActive
     }
     
+    public var customHeaders: [String] {
+        return activeApi.customHeaders
+    }
+    
     public func provideCredentials(credentials: LoginCredentials) {
         activeApi.provideCredentials(credentials: credentials)
     }
-
+    
     public func isAuthenticationValid(credentials: LoginCredentials) -> Promise<Void> {
         return activeApi.isAuthenticationValid(credentials: credentials)
     }
@@ -334,7 +334,7 @@ extension BackendProxy: BackendApi {
     public func createLibrarySyncer(storage: PersistentStorage) -> LibrarySyncer {
         return activeApi.createLibrarySyncer(storage: storage)
     }
-
+    
     public func createArtworkArtworkDownloadDelegate() -> DownloadManagerDelegate {
         return activeApi.createArtworkArtworkDownloadDelegate()
     }
@@ -347,4 +347,7 @@ extension BackendProxy: BackendApi {
         return activeApi.cleanse(url: url)
     }
     
+    public func setCustomHeaders(headers: [String]) {
+        activeApi.setCustomHeaders(headers: headers)
+    }
 }

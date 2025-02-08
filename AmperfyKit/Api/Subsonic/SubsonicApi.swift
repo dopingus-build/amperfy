@@ -23,8 +23,7 @@ import Foundation
 import os.log
 import PromiseKit
 
-class SubsonicApi  {
-        
+class SubsonicApi {
     private let subsonicServerApi: SubsonicServerApi
     private let networkMonitor: NetworkMonitorFacade
     private let performanceMonitor: ThreadPerformanceMonitor
@@ -41,11 +40,9 @@ class SubsonicApi  {
         get { return subsonicServerApi.authType }
         set { subsonicServerApi.authType = newValue }
     }
-    
 }
     
 extension SubsonicApi: BackendApi {
-    
     public var clientApiVersion: String {
         return subsonicServerApi.clientApiVersion?.description ?? "-"
     }
@@ -58,6 +55,10 @@ extension SubsonicApi: BackendApi {
         return subsonicServerApi.isStreamingTranscodingActive
     }
 
+    public var customHeaders: [String] {
+        return subsonicServerApi.customHeaders
+    }
+    
     func provideCredentials(credentials: LoginCredentials) {
         subsonicServerApi.provideCredentials(credentials: credentials)
     }
@@ -97,5 +98,8 @@ extension SubsonicApi: BackendApi {
     func cleanse(url: URL) -> CleansedURL {
         return subsonicServerApi.cleanse(url: url)
     }
-
+    
+    func setCustomHeaders(headers: [String]) {
+        subsonicServerApi.setCustomHeaders(headers: headers)
+    }
 }

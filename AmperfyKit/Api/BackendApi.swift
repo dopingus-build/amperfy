@@ -19,11 +19,11 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-import Foundation
 import CoreData
 import CoreMedia
-import PromiseKit
+import Foundation
 import PMKAlamofire
+import PromiseKit
 
 public enum ParsedObjectType {
     case artist
@@ -56,7 +56,7 @@ public class APIDataResponse {
     public var data: Data
     public var url: URL?
     public var meta: PMKAlamofireDataResponse?
-    
+
     init(data: Data, url: URL?, meta: PMKAlamofireDataResponse?) {
         self.data = data
         self.url = url
@@ -64,10 +64,9 @@ public class APIDataResponse {
     }
 }
 
-
 public struct LyricsList {
     public var lyrics = [StructuredLyrics]()
-    
+
     public func getFirstSyncedLyricsOrUnsyncedAsDefault() -> StructuredLyrics? {
         guard let index = lyrics.firstIndex(where: { $0.synced }) else {
             return lyrics.object(at: 0)
@@ -91,7 +90,7 @@ public struct StructuredLyrics {
 public struct LyricsLine {
     public var start: Int? // The start time of the lyrics, relative to the start time of the track, in milliseconds. If this is not part of synced lyrics, start must be omitted
     public var value = "" // The actual text of this line
-    
+
     public init() {}
     public var startTime: CMTime {
         guard let start = start else { return CMTime(value: Int64(0), timescale: 1) }
@@ -144,14 +143,13 @@ protocol AbstractBackgroundLibrarySyncer {
     func stopAndWait()
 }
 
-
 public class CleansedURL {
     private var urlString: String
-    
+
     init(urlString: String) {
         self.urlString = urlString
     }
-    
+
     var description: String {
         return urlString
     }
@@ -170,7 +168,7 @@ public protocol URLCleanser {
 public struct TranscodingInfo {
     var format: CacheTranscodingFormatPreference? = nil
     var bitrate: StreamingMaxBitratePreference? = nil
-    
+
     var description: String {
         return "Format: \(format?.description ?? "-"), Bitrate: \(bitrate?.description ?? "-")"
     }
@@ -180,6 +178,7 @@ public protocol BackendApi: URLCleanser {
     var clientApiVersion: String { get }
     var serverApiVersion: String { get }
     var isStreamingTranscodingActive: Bool { get }
+    var customHeaders: [String] { get }
     func provideCredentials(credentials: LoginCredentials)
     func isAuthenticationValid(credentials: LoginCredentials) -> Promise<Void>
     func generateUrl(forDownloadingPlayable playable: AbstractPlayable) -> Promise<URL>
@@ -189,4 +188,5 @@ public protocol BackendApi: URLCleanser {
     func createLibrarySyncer(storage: PersistentStorage) -> LibrarySyncer
     func createArtworkArtworkDownloadDelegate() -> DownloadManagerDelegate
     func extractArtworkInfoFromURL(urlString: String) -> ArtworkRemoteInfo?
+    func setCustomHeaders(headers: [String])
 }

@@ -23,7 +23,6 @@ import Foundation
 import PromiseKit
 
 class AmpacheApi: BackendApi {
-
     private let ampacheXmlServerApi: AmpacheXmlServerApi
     private let networkMonitor: NetworkMonitorFacade
     private let performanceMonitor: ThreadPerformanceMonitor
@@ -35,17 +34,21 @@ class AmpacheApi: BackendApi {
         self.performanceMonitor = performanceMonitor
         self.eventLogger = eventLogger
     }
-    
+
     public var clientApiVersion: String {
         return ampacheXmlServerApi.clientApiVersion
     }
-    
+
     public var serverApiVersion: String {
         return ampacheXmlServerApi.serverApiVersion ?? "-"
     }
-    
+
     public var isStreamingTranscodingActive: Bool {
         return ampacheXmlServerApi.isStreamingTranscodingActive
+    }
+
+    public var customHeaders: [String] {
+        return ampacheXmlServerApi.customHeaders
     }
 
     func provideCredentials(credentials: LoginCredentials) {
@@ -63,29 +66,32 @@ class AmpacheApi: BackendApi {
     func generateUrl(forStreamingPlayable playable: AbstractPlayable, maxBitrate: StreamingMaxBitratePreference) -> Promise<URL> {
         return ampacheXmlServerApi.generateUrl(forStreamingPlayable: playable, maxBitrate: maxBitrate)
     }
-    
+
     func generateUrl(forArtwork artwork: Artwork) -> Promise<URL> {
         return ampacheXmlServerApi.generateUrl(forArtwork: artwork)
     }
-    
+
     func checkForErrorResponse(response: APIDataResponse) -> ResponseError? {
         return ampacheXmlServerApi.checkForErrorResponse(response: response)
     }
 
     func createLibrarySyncer(storage: PersistentStorage) -> LibrarySyncer {
-        return AmpacheLibrarySyncer(ampacheXmlServerApi: ampacheXmlServerApi, networkMonitor: networkMonitor, performanceMonitor: self.performanceMonitor, storage: storage, eventLogger: eventLogger)
+        return AmpacheLibrarySyncer(ampacheXmlServerApi: ampacheXmlServerApi, networkMonitor: networkMonitor, performanceMonitor: performanceMonitor, storage: storage, eventLogger: eventLogger)
     }
 
     func createArtworkArtworkDownloadDelegate() -> DownloadManagerDelegate {
         return AmpacheArtworkDownloadDelegate(ampacheXmlServerApi: ampacheXmlServerApi, networkMonitor: networkMonitor)
     }
-    
+
     func extractArtworkInfoFromURL(urlString: String) -> ArtworkRemoteInfo? {
         AmpacheXmlServerApi.extractArtworkInfoFromURL(urlString: urlString)
     }
-    
+
     func cleanse(url: URL) -> CleansedURL {
         return ampacheXmlServerApi.cleanse(url: url)
     }
 
+    func setCustomHeaders(headers: [String]) {
+        ampacheXmlServerApi.setCustomHeaders(headers: headers)
+    }
 }

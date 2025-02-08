@@ -19,11 +19,11 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
+import Alamofire
 import Foundation
 import os.log
-import PromiseKit
-import Alamofire
 import PMKAlamofire
+import PromiseKit
 
 protocol SubsonicUrlCreator {
     func getArtUrlString(forCoverArtId: String) -> String
@@ -54,7 +54,7 @@ extension ResponseError {
 }
 
 enum OpenSubsonicExtension: String {
-    case songLyrics = "songLyrics"
+    case songLyrics
 }
 
 struct OpenSubsonicExtensionsSupport {
@@ -63,7 +63,6 @@ struct OpenSubsonicExtensionsSupport {
 }
 
 class SubsonicServerApi: URLCleanser {
-    
     enum SubsonicError: Int {
         case generic = 0 // A generic error.
         case requiredParameterMissing = 10 // Required parameter is missing.
@@ -92,10 +91,13 @@ class SubsonicServerApi: URLCleanser {
     var isStreamingTranscodingActive: Bool {
         return persistentStorage.settings.streamingFormatPreference != .raw
     }
+
     var authType: SubsonicApiAuthType = .autoDetect
     private var authTypeBasedClientApiVersion: SubsonicVersion {
-        return self.authType == .legacy ? Self.defaultClientApiVersionPreToken : Self.defaultClientApiVersionWithToken
+        return authType == .legacy ? Self.defaultClientApiVersionPreToken : Self.defaultClientApiVersionWithToken
     }
+
+    var customHeaders: [String] = []
     
     private let log = OSLog(subsystem: "Amperfy", category: "Subsonic")
     private let performanceMonitor: ThreadPerformanceMonitor
@@ -112,8 +114,8 @@ class SubsonicServerApi: URLCleanser {
     
     static func extractArtworkInfoFromURL(urlString: String) -> ArtworkRemoteInfo? {
         guard let url = URL(string: urlString),
-            let urlComp = URLComponents(url: url, resolvingAgainstBaseURL: false),
-            let id = urlComp.queryItems?.first(where: {$0.name == "id"})?.value
+              let urlComp = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let id = urlComp.queryItems?.first(where: { $0.name == "id" })?.value
         else { return nil }
         return ArtworkRemoteInfo(id: id, type: "")
     }
@@ -132,7 +134,7 @@ class SubsonicServerApi: URLCleanser {
         if let serverVersion = serverApiVersion {
             return Promise<SubsonicVersion>.value(serverVersion)
         } else {
-            return self.requestServerApiVersionPromise(providedCredentials: providedCredentials)
+            return requestServerApiVersionPromise(providedCredentials: providedCredentials)
         }
     }
     
@@ -154,13 +156,13 @@ class SubsonicServerApi: URLCleanser {
                 }
                 return clientVersionSeal.fulfill(self.clientApiVersion!)
             }.catch { error in
-                return clientVersionSeal.reject(error)
+                clientVersionSeal.reject(error)
             }
         }
     }
     
     private func createBasicApiUrlComponent(forAction: String, providedCredentials: LoginCredentials? = nil) -> URLComponents? {
-        let localCredentials = providedCredentials != nil ? providedCredentials : self.credentials
+        let localCredentials = providedCredentials != nil ? providedCredentials : credentials
         guard let hostname = localCredentials?.serverUrl,
               var apiUrl = URL(string: hostname)
         else { return nil }
@@ -172,7 +174,7 @@ class SubsonicServerApi: URLCleanser {
     }
     
     private func createAuthApiUrlComponent(version: SubsonicVersion, forAction: String, credentials providedCredentials: LoginCredentials? = nil) throws -> URLComponents {
-        let localCredentials = providedCredentials != nil ? providedCredentials : self.credentials
+        let localCredentials = providedCredentials != nil ? providedCredentials : credentials
         guard let username = localCredentials?.username,
               let password = localCredentials?.password,
               var urlComp = createBasicApiUrlComponent(forAction: forAction, providedCredentials: localCredentials)
@@ -237,7 +239,7 @@ class SubsonicServerApi: URLCleanser {
             self.determineApiVersionToUse(providedCredentials: credentials)
         }.then { version -> Promise<APIDataResponse> in
             let urlComp = try self.createAuthApiUrlComponent(version: version, forAction: "ping", credentials: credentials)
-            return self.request(url: try self.createUrl(from: urlComp))
+            return try self.request(url: self.createUrl(from: urlComp))
         }.then { response -> Promise<Void> in
             let parserDelegate = SsPingParserDelegate(performanceMonitor: self.performanceMonitor)
             let parser = XMLParser(data: response.data)
@@ -314,14 +316,14 @@ class SubsonicServerApi: URLCleanser {
     
     func generateUrl(forArtwork artwork: Artwork) -> Promise<URL> {
         guard let urlComp = URLComponents(string: artwork.url),
-           let queryItems = urlComp.queryItems,
-           let coverArtQuery = queryItems.first(where: {$0.name == "id"}),
-           let coverArtId = coverArtQuery.value
+              let queryItems = urlComp.queryItems,
+              let coverArtQuery = queryItems.first(where: { $0.name == "id" }),
+              let coverArtId = coverArtQuery.value
         else { return Promise(error: BackendError.invalidUrl) }
         return firstly {
             self.determineApiVersionToUse()
         }.then { version in
-            Promise<URL>.value(try self.createUrl(from: try self.createAuthApiUrlComponent(version: version, forAction: "getCoverArt", id: coverArtId)))
+            try Promise<URL>.value(self.createUrl(from: self.createAuthApiUrlComponent(version: version, forAction: "getCoverArt", id: coverArtId)))
         }
     }
     
@@ -331,12 +333,12 @@ class SubsonicServerApi: URLCleanser {
                 guard let urlComp = try? createAuthApiUrlComponent(version: authTypeBasedClientApiVersion, forAction: "ping", credentials: providedCredentials) else {
                     throw BackendError.invalidUrl
                 }
-                return seal.fulfill(try createUrl(from: urlComp))
+                return try seal.fulfill(createUrl(from: urlComp))
             }
         }.then { url in
             self.request(url: url)
         }.then { response in
-            return Promise<SubsonicVersion> { seal in
+            Promise<SubsonicVersion> { seal in
                 let delegate = SsPingParserDelegate(performanceMonitor: self.performanceMonitor)
                 let parser = XMLParser(data: response.data)
                 parser.delegate = delegate
@@ -355,7 +357,7 @@ class SubsonicServerApi: URLCleanser {
     func requestServerPodcastSupport() -> Promise<Bool> {
         return firstly {
             self.determineApiVersionToUse()
-        }.then { auth -> Promise<Bool> in
+        }.then { _ -> Promise<Bool> in
             var isPodcastSupported = false
             if let serverApi = self.serverApiVersion {
                 isPodcastSupported = serverApi >= SubsonicVersion(major: 1, minor: 9, patch: 0)
@@ -368,7 +370,7 @@ class SubsonicServerApi: URLCleanser {
                         self.requestPodcasts().asVoid()
                     }.done {
                         seal.fulfill(true)
-                    }.catch { error in
+                    }.catch { _ in
                         seal.fulfill(false)
                     }
                 }
@@ -386,7 +388,7 @@ class SubsonicServerApi: URLCleanser {
     func isOpenSubsonicExtensionSupported(extension oSsExtention: OpenSubsonicExtension) -> Guarantee<Bool> {
         // the member variable will be set after the server has been requested
         // here we already asked the server for its support and use the cached response
-        if let oSsExtSupport = self.openSubsonicExtensionsSupport {
+        if let oSsExtSupport = openSubsonicExtensionsSupport {
             if oSsExtSupport.isSupported == false {
                 os_log("No OpenSubsonicExtensions supported (%s)!", log: self.log, type: .info, oSsExtention.rawValue)
                 return Guarantee.value(false)
@@ -421,7 +423,7 @@ class SubsonicServerApi: URLCleanser {
                         self.openSubsonicExtensionsSupport?.extensionResponse = parserDelegate.openSubsonicExtensionsResponse
                         
                         if let availableExtensions = self.openSubsonicExtensionsSupport?.extensionResponse?.supportedExtensions {
-                            let availableExtensionsStr = availableExtensions.reduce("", { $0 == "" ? $1 : $0 + ", " + $1 })
+                            let availableExtensionsStr = availableExtensions.reduce("") { $0 == "" ? $1 : $0 + ", " + $1 }
                             os_log("OpenSubsonicExtensions supported: %s", log: self.log, type: .info, availableExtensionsStr)
                             let isSpecificExtensionSupported = availableExtensions.contains(oSsExtention.rawValue)
                             os_log("OpenSubsonicExtensions %s supported: %s", log: self.log, type: .info, oSsExtention.rawValue, isSpecificExtensionSupported ? "yes" : "no")
@@ -431,7 +433,7 @@ class SubsonicServerApi: URLCleanser {
                             seal(false)
                         }
                     }
-                }.catch { error in
+                }.catch { _ in
                     os_log("No OpenSubsonicExtension supported (%s)!", log: self.log, type: .info, oSsExtention.rawValue)
                     self.openSubsonicExtensionsSupport = OpenSubsonicExtensionsSupport()
                     self.openSubsonicExtensionsSupport?.isSupported = false
@@ -529,7 +531,7 @@ class SubsonicServerApi: URLCleanser {
         }
     }
     
-    func requestPodcastEpisodeDelete(id: String) -> Promise<APIDataResponse>  {
+    func requestPodcastEpisodeDelete(id: String) -> Promise<APIDataResponse> {
         return request { version in
             let urlComp = try self.createAuthApiUrlComponent(version: version, forAction: "deletePodcastEpisode", id: id)
             return try self.createUrl(from: urlComp)
@@ -549,7 +551,6 @@ class SubsonicServerApi: URLCleanser {
             return try self.createUrl(from: urlComp)
         }
     }
-    
     
     func requestSearchAlbums(searchText: String) -> Promise<APIDataResponse> {
         return request { version in
@@ -609,7 +610,7 @@ class SubsonicServerApi: URLCleanser {
     }
     
     func checkForErrorResponse(response: APIDataResponse) -> ResponseError? {
-        let errorParser = SsXmlParser(performanceMonitor: self.performanceMonitor)
+        let errorParser = SsXmlParser(performanceMonitor: performanceMonitor)
         let parser = XMLParser(data: response.data)
         parser.delegate = errorParser
         parser.parse()
@@ -743,32 +744,40 @@ class SubsonicServerApi: URLCleanser {
         return firstly {
             self.determineApiVersionToUse()
         }.then { version in
-            Promise<URL> { seal in seal.fulfill(try urlCreation(version)) }
+            Promise<URL> { seal in try seal.fulfill(urlCreation(version)) }
         }.then { url in
             self.request(url: url)
         }
     }
     
     private func request(url: URL) -> Promise<APIDataResponse> {
+        let httpHeaders: HTTPHeaders = customHeaders.reduce(into: [:]) { result, header in
+            let parts = header.split(separator: "=")
+            if parts.count == 2 {
+                result[String(parts[0])] = String(parts[1])
+            }
+        }
         return firstly {
-            AF.request(url, method: .get).validate().responseData()
+            AF.request(url, method: .get, headers: httpHeaders).validate().responseData()
         }.then { data, response in
             Promise<APIDataResponse>.value(APIDataResponse(data: data, url: url, meta: response))
         }
     }
     
+    func setCustomHeaders(headers: [String]) {
+        customHeaders = headers
+    }
 }
 
 extension SubsonicServerApi: SubsonicUrlCreator {
     func getArtUrlString(forCoverArtId id: String) -> String {
-        guard let clientVersion = self.clientApiVersion else { return "" }
+        guard let clientVersion = clientApiVersion else { return "" }
         if let apiUrlComponent = try? createAuthApiUrlComponent(version: clientVersion, forAction: "getCoverArt", id: id),
-           let url = apiUrlComponent.url {
+           let url = apiUrlComponent.url
+        {
             return url.absoluteString
         } else {
             return ""
         }
-        
     }
 }
-

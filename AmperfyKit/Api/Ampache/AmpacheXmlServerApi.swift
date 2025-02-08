@@ -19,12 +19,12 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-import Foundation
-import CoreData
-import os.log
-import PromiseKit
 import Alamofire
+import CoreData
+import Foundation
+import os.log
 import PMKAlamofire
+import PromiseKit
 
 struct AmpacheResponseError: LocalizedError {
     public var statusCode: Int = 0
@@ -46,18 +46,17 @@ extension ResponseError {
 }
 
 class AmpacheXmlServerApi: URLCleanser {
-    
     enum AmpacheError: Int {
         case empty = 0
         case accessControlNotEnabled = 4700 // The API is disabled. Enable 'access_control' in your config
-        case receivedInvalidHandshake = 4701 //This is a temporary error, this means no valid session was passed or the handshake failed
+        case receivedInvalidHandshake = 4701 // This is a temporary error, this means no valid session was passed or the handshake failed
         case accessDenied = 4703 // The requested method is not available
-                                 // You can check the error message for details about which feature is disabled
+        // You can check the error message for details about which feature is disabled
         case notFound = 4704 // The API could not find the requested object
         case missing = 4705 // This is a fatal error, the service requested a method that the API does not implement
         case depreciated = 4706 // This is a fatal error, the method requested is no longer available
-        case badRequest = 4710  // Used when you have specified a valid method but something about the input is incorrect, invalid or missing
-                                // You can check the error message for details, but do not re-attempt the exact same request
+        case badRequest = 4710 // Used when you have specified a valid method but something about the input is incorrect, invalid or missing
+        // You can check the error message for details, but do not re-attempt the exact same request
         case failedAccessCheck = 4742 // Access denied to the requested object or function for this user
         
         var shouldErrorBeDisplayedToUser: Bool {
@@ -77,6 +76,8 @@ class AmpacheXmlServerApi: URLCleanser {
     var isStreamingTranscodingActive: Bool {
         return persistentStorage.settings.streamingFormatPreference != .raw
     }
+
+    var customHeaders: [String] = []
     
     private let log = OSLog(subsystem: "Amperfy", category: "Ampache")
     private let performanceMonitor: ThreadPerformanceMonitor
@@ -88,7 +89,7 @@ class AmpacheXmlServerApi: URLCleanser {
     func requestServerPodcastSupport() -> Promise<Bool> {
         return firstly {
             reauthenticate()
-        }.then { auth -> Promise<Bool> in
+        }.then { _ -> Promise<Bool> in
             var isPodcastSupported = false
             if let serverApi = self.serverApiVersion, let serverApiInt = Int(serverApi) {
                 isPodcastSupported = serverApiInt >= 420000
@@ -97,7 +98,7 @@ class AmpacheXmlServerApi: URLCleanser {
         }
     }
     
-    init(performanceMonitor: ThreadPerformanceMonitor,eventLogger: EventLogger, persistentStorage: PersistentStorage) {
+    init(performanceMonitor: ThreadPerformanceMonitor, eventLogger: EventLogger, persistentStorage: PersistentStorage) {
         self.performanceMonitor = performanceMonitor
         self.eventLogger = eventLogger
         self.persistentStorage = persistentStorage
@@ -105,15 +106,15 @@ class AmpacheXmlServerApi: URLCleanser {
     
     static func extractArtworkInfoFromURL(urlString: String) -> ArtworkRemoteInfo? {
         guard let url = URL(string: urlString),
-            let urlComp = URLComponents(url: url, resolvingAgainstBaseURL: false),
-            let objectId = urlComp.queryItems?.first(where: {$0.name == "object_id"})?.value,
-            let objectType = urlComp.queryItems?.first(where: {$0.name == "object_type"})?.value
+              let urlComp = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let objectId = urlComp.queryItems?.first(where: { $0.name == "object_id" })?.value,
+              let objectType = urlComp.queryItems?.first(where: { $0.name == "object_type" })?.value
         else { return nil }
         return ArtworkRemoteInfo(id: objectId, type: objectType)
     }
-
+    
     private func isAuthenticated(auth: AuthentificationHandshake) -> Bool {
-        let deltaTime:TimeInterval = auth.reauthenicateTime.timeIntervalSince(Date())
+        let deltaTime: TimeInterval = auth.reauthenicateTime.timeIntervalSince(Date())
         return !deltaTime.isLess(than: 0.0)
     }
     
@@ -124,15 +125,15 @@ class AmpacheXmlServerApi: URLCleanser {
         let passphrase = StringHasher.sha256(dataString: dataStr)
         return passphrase
     }
-
+    
     private func createApiUrl(providedCredentials: LoginCredentials? = nil) -> URL? {
-        let localCredentials = providedCredentials != nil ? providedCredentials : self.credentials
+        let localCredentials = providedCredentials != nil ? providedCredentials : credentials
         guard let hostname = localCredentials?.serverUrl else { return nil }
         var apiUrl = URL(string: hostname)
-        Self.apiPathComponents.forEach{ apiUrl?.appendPathComponent($0) }
+        Self.apiPathComponents.forEach { apiUrl?.appendPathComponent($0) }
         return apiUrl
     }
- 
+    
     private func createAuthApiUrlComponent(auth: AuthentificationHandshake) throws -> URLComponents {
         guard let apiUrl = createApiUrl() else { throw BackendError.invalidUrl }
         guard var urlComp = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else { throw BackendError.invalidUrl }
@@ -141,7 +142,7 @@ class AmpacheXmlServerApi: URLCleanser {
     }
     
     func provideCredentials(credentials: LoginCredentials) {
-        self.authHandshake = nil
+        authHandshake = nil
         self.credentials = credentials
     }
     
@@ -177,7 +178,7 @@ class AmpacheXmlServerApi: URLCleanser {
         return Promise<URL> { seal in
             let timestamp = Int(NSDate().timeIntervalSince1970)
             let passphrase = generatePassphrase(passwordHash: credentials.passwordHash, timestamp: timestamp)
-
+            
             guard let apiUrl = createApiUrl(providedCredentials: credentials), var urlComp = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else { throw BackendError.invalidUrl }
             urlComp.addQueryItem(name: "action", value: "handshake")
             urlComp.addQueryItem(name: "auth", value: passphrase)
@@ -361,7 +362,7 @@ class AmpacheXmlServerApi: URLCleanser {
             return try self.createUrl(from: urlComp)
         }
     }
-
+    
     func requestAlbums(startIndex: Int, pollCount: Int = maxItemCountToPollAtOnce) -> Promise<APIDataResponse> {
         return request { auth in
             let offset = startIndex < auth.albumCount ? startIndex : auth.albumCount-1
@@ -383,7 +384,7 @@ class AmpacheXmlServerApi: URLCleanser {
             return try self.createUrl(from: urlComp)
         }
     }
-
+    
     func requestPodcastEpisodeDelete(id: String) -> Promise<APIDataResponse> {
         return request { auth in
             var urlComp = try self.createAuthApiUrlComponent(auth: auth)
@@ -534,7 +535,7 @@ class AmpacheXmlServerApi: URLCleanser {
             urlComp.addQueryItem(name: "action", value: "playlist_edit")
             urlComp.addQueryItem(name: "filter", value: id)
             urlComp.addQueryItem(name: "items", value: songsIds.joined(separator: ","))
-            urlComp.addQueryItem(name: "tracks", value: Array(1...songsIds.count).compactMap{"\($0)"}.joined(separator: ","))
+            urlComp.addQueryItem(name: "tracks", value: Array(1 ... songsIds.count).compactMap { "\($0)" }.joined(separator: ","))
             return try self.createUrl(from: urlComp)
         }
     }
@@ -614,7 +615,7 @@ class AmpacheXmlServerApi: URLCleanser {
             return try self.createUrl(from: urlComp)
         }
     }
-
+    
     func requestSetFavorite(songId: String, isFavorite: Bool) -> Promise<APIDataResponse> {
         return request { auth in
             var urlComp = try self.createAuthApiUrlComponent(auth: auth)
@@ -687,13 +688,19 @@ class AmpacheXmlServerApi: URLCleanser {
     }
     
     private func request(url: URL) -> Promise<APIDataResponse> {
+        let httpHeaders: HTTPHeaders = customHeaders.reduce(into: [:]) { result, header in
+            let parts = header.split(separator: "=")
+            if parts.count == 2 {
+                result[String(parts[0])] = String(parts[1])
+            }
+        }
         return firstly {
-            AF.request(url, method: .get).validate().responseData()
+            AF.request(url, method: .get, headers: httpHeaders).validate().responseData()
         }.then { data, response in
             Promise<APIDataResponse>.value(APIDataResponse(data: data, url: url, meta: response))
         }
     }
-
+    
     func requesetLibraryMetaData() -> Promise<AuthentificationHandshake> {
         return reauthenticate()
     }
@@ -702,7 +709,7 @@ class AmpacheXmlServerApi: URLCleanser {
         return firstly {
             reauthenticate()
         }.then { auth in
-            return Promise<URL> { seal in
+            Promise<URL> { seal in
                 var urlComp = try self.createAuthApiUrlComponent(auth: auth)
                 urlComp.addQueryItem(name: "action", value: "download")
                 urlComp.addQueryItem(name: "type", value: playable.isSong ? "song" : "podcast_episode")
@@ -723,7 +730,7 @@ class AmpacheXmlServerApi: URLCleanser {
         return firstly {
             reauthenticate()
         }.then { auth in
-            return Promise<URL> { seal in
+            Promise<URL> { seal in
                 var urlComp = try self.createAuthApiUrlComponent(auth: auth)
                 urlComp.addQueryItem(name: "action", value: "stream")
                 urlComp.addQueryItem(name: "type", value: playable.isSong ? "song" : "podcast_episode")
@@ -750,11 +757,11 @@ class AmpacheXmlServerApi: URLCleanser {
     }
     
     func generateUrl(forArtwork artwork: Artwork) -> Promise<URL> {
-        return self.updateUrlToken(urlString: artwork.url)
+        return updateUrlToken(urlString: artwork.url)
     }
     
     func checkForErrorResponse(response: APIDataResponse) -> ResponseError? {
-        let errorParser = AmpacheXmlParser(performanceMonitor: self.performanceMonitor)
+        let errorParser = AmpacheXmlParser(performanceMonitor: performanceMonitor)
         let parser = XMLParser(data: response.data)
         parser.delegate = errorParser
         parser.parse()
@@ -784,7 +791,7 @@ class AmpacheXmlServerApi: URLCleanser {
             
             outputUrlComp.queryItems = outputItems
             outputUrlComp.path = inputUrl.path
-            return Promise<URL>.value(try self.createUrl(from: outputUrlComp))
+            return try Promise<URL>.value(self.createUrl(from: outputUrlComp))
         }
     }
     
@@ -792,10 +799,13 @@ class AmpacheXmlServerApi: URLCleanser {
         return firstly {
             reauthenticate()
         }.then { auth in
-            Promise<URL> { seal in seal.fulfill(try urlCreation(auth)) }
+            Promise<URL> { seal in try seal.fulfill(urlCreation(auth)) }
         }.then { url in
             self.request(url: url)
         }
     }
     
+    func setCustomHeaders(headers: [String]) {
+        customHeaders = headers
+    }
 }

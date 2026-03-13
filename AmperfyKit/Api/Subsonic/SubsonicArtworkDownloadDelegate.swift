@@ -134,4 +134,8 @@ final class SubsonicArtworkDownloadDelegate: DownloadManagerDelegate {
       asyncCompanion.saveContext()
     }
   }
+
+  func getCustomHeaders() async -> [CustomHeader] {
+    subsonicServerApi.getActiveCredentials()?.customHeaders ?? []
+  }
 }

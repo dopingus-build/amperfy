@@ -344,6 +344,10 @@ extension BackendProxy: BackendApi {
     activeApi.provideCredentials(credentials: credentials)
   }
 
+  public func getActiveCredentials() -> LoginCredentials? {
+    activeApi.getActiveCredentials()
+  }
+
   public func isAuthenticationValid(credentials: LoginCredentials) async throws {
     try await activeApi.isAuthenticationValid(credentials: credentials)
   }

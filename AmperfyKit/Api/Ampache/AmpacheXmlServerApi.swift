@@ -161,6 +161,10 @@ final class AmpacheXmlServerApi: URLCleanser, Sendable {
     self.credentials.wrappedValue = credentials
   }
 
+  func getActiveCredentials() -> LoginCredentials? {
+    credentials.wrappedValue
+  }
+
   private func authenticate(credentials: LoginCredentials) async throws
     -> AuthentificationHandshake {
     do {

@@ -158,20 +158,10 @@ class LoginVC: UIViewController {
     login()
   }
 
-  fileprivate lazy var apiSelectorButton: UIButton = {
+  fileprivate lazy var optionsButton: UIButton = {
     var config = UIButton.Configuration.glass()
+    config.image = UIImage(systemName: "ellipsis")
     let button = UIButton(configuration: config)
-    button.setTitle("API", for: .normal)
-    button.preferredBehavioralStyle = .pad
-    return button
-  }()
-
-  fileprivate lazy var customHeadersButton: UIButton = {
-    var config = UIButton.Configuration.glass()
-    config.image = UIImage(systemName: "gearshape")
-    let button = UIButton(configuration: config)
-    button.setTitle("Custom Headers", for: .normal)
-    button.addTarget(self, action: #selector(Self.customHeadersPressed), for: .touchUpInside)
     button.preferredBehavioralStyle = .pad
     return button
   }()
@@ -213,6 +203,57 @@ class LoginVC: UIViewController {
     let navigationController = UINavigationController(rootViewController: customHeadersVC)
     navigationController.modalPresentationStyle = .formSheet
     present(navigationController, animated: true)
+  }
+
+  func setupOptionsMenu() {
+    optionsButton.showsMenuAsPrimaryAction = true
+    optionsButton.menu = UIMenu(title: "Options", children: [
+      UIAction(
+        title: "Custom Headers",
+        image: UIImage(systemName: "gearshape"),
+        handler: { [weak self] _ in
+          self?.customHeadersPressed()
+        }
+      ),
+      UIMenu(title: "API Type", image: UIImage(systemName: "cpu"), children: [
+        UIAction(
+          title: BackenApiType.notDetected.selectorDescription,
+          image: selectedApiType == .notDetected ? UIImage(systemName: "checkmark") : nil,
+          handler: { [weak self] _ in
+            self?.selectedApiType = .notDetected
+            self?.updateApiSelectorText()
+            self?.setupOptionsMenu()
+          }
+        ),
+        UIAction(
+          title: BackenApiType.ampache.selectorDescription,
+          image: selectedApiType == .ampache ? UIImage(systemName: "checkmark") : nil,
+          handler: { [weak self] _ in
+            self?.selectedApiType = .ampache
+            self?.updateApiSelectorText()
+            self?.setupOptionsMenu()
+          }
+        ),
+        UIAction(
+          title: BackenApiType.subsonic.selectorDescription,
+          image: selectedApiType == .subsonic ? UIImage(systemName: "checkmark") : nil,
+          handler: { [weak self] _ in
+            self?.selectedApiType = .subsonic
+            self?.updateApiSelectorText()
+            self?.setupOptionsMenu()
+          }
+        ),
+        UIAction(
+          title: BackenApiType.subsonic_legacy.selectorDescription,
+          image: selectedApiType == .subsonic_legacy ? UIImage(systemName: "checkmark") : nil,
+          handler: { [weak self] _ in
+            self?.selectedApiType = .subsonic_legacy
+            self?.updateApiSelectorText()
+            self?.setupOptionsMenu()
+          }
+        ),
+      ]),
+    ])
   }
 
   @IBAction
@@ -359,41 +400,29 @@ class LoginVC: UIViewController {
     loginButton
   }()
 
-  public lazy var customHeadersGlassContainer: UIView = {
-    customHeadersButton
+  public lazy var optionsGlassContainer: UIView = {
+    optionsButton
   }()
 
   public lazy var bottomButtonContainer: UIView = {
     let container = UIView()
     container.translatesAutoresizingMaskIntoConstraints = false
 
-    customHeadersButton.translatesAutoresizingMaskIntoConstraints = false
-    apiSelectorButton.translatesAutoresizingMaskIntoConstraints = false
+    optionsButton.translatesAutoresizingMaskIntoConstraints = false
     loginButton.translatesAutoresizingMaskIntoConstraints = false
 
-    container.addSubview(customHeadersButton)
-    container.addSubview(apiSelectorButton)
+    container.addSubview(optionsButton)
     container.addSubview(loginButton)
 
     NSLayoutConstraint.activate([
-      customHeadersButton.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-      customHeadersButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-      customHeadersButton.heightAnchor.constraint(equalToConstant: 40),
+      optionsButton.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
+      optionsButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      optionsButton.widthAnchor.constraint(equalToConstant: 40),
+      optionsButton.heightAnchor.constraint(equalToConstant: 40),
 
-      apiSelectorButton.leadingAnchor.constraint(
-        equalTo: customHeadersButton.trailingAnchor,
-        constant: 15
-      ),
-      apiSelectorButton.trailingAnchor.constraint(
-        equalTo: loginButton.leadingAnchor,
-        constant: -15
-      ),
-      apiSelectorButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-      apiSelectorButton.heightAnchor.constraint(equalToConstant: 40),
-
-      loginButton.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      loginButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
       loginButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-      loginButton.widthAnchor.constraint(equalToConstant: 100),
+      loginButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
       loginButton.heightAnchor.constraint(equalToConstant: 40),
     ])
 
@@ -460,26 +489,7 @@ class LoginVC: UIViewController {
     super.viewDidLoad()
     backendApi = appDelegate.backendApi
     updateApiSelectorText()
-
-    apiSelectorButton.showsMenuAsPrimaryAction = true
-    apiSelectorButton.menu = UIMenu(title: "Select API", children: [
-      UIAction(title: BackenApiType.notDetected.selectorDescription, handler: { _ in
-        self.selectedApiType = .notDetected
-        self.updateApiSelectorText()
-      }),
-      UIAction(title: BackenApiType.ampache.selectorDescription, handler: { _ in
-        self.selectedApiType = .ampache
-        self.updateApiSelectorText()
-      }),
-      UIAction(title: BackenApiType.subsonic.selectorDescription, handler: { _ in
-        self.selectedApiType = .subsonic
-        self.updateApiSelectorText()
-      }),
-      UIAction(title: BackenApiType.subsonic_legacy.selectorDescription, handler: { _ in
-        self.selectedApiType = .subsonic_legacy
-        self.updateApiSelectorText()
-      }),
-    ])
+    setupOptionsMenu()
 
     view.backgroundColor = .systemBackground
 
@@ -582,6 +592,6 @@ class LoginVC: UIViewController {
   }
 
   func updateApiSelectorText() {
-    apiSelectorButton.setTitle("\(selectedApiType.selectorDescription)", for: .normal)
+    // API selection is now in the options menu, no button text to update
   }
 }

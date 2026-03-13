@@ -251,6 +251,10 @@ final class SubsonicServerApi: URLCleanser, Sendable {
     self.credentials.wrappedValue = credentials
   }
 
+  public func getActiveCredentials() -> LoginCredentials? {
+    credentials.wrappedValue
+  }
+
   public func cleanse(url: URL?) -> CleansedURL {
     guard let url = url,
           var urlComp = URLComponents(url: url, resolvingAgainstBaseURL: false),

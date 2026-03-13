@@ -149,4 +149,8 @@ final class PlayableDownloadDelegate: DownloadManagerDelegate {
   }
 
   func failedDownload(downloadInfo: DownloadElementInfo, storage: AsyncCoreDataAccessWrapper) {}
+
+  func getCustomHeaders() async -> [CustomHeader] {
+    await backendApi.getActiveCredentials()?.customHeaders ?? []
+  }
 }

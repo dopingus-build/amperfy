@@ -650,13 +650,10 @@ class BackendAudioPlayer: NSObject {
   }
 
   private func getCustomHeaders() -> [CustomHeader] {
-    guard let headersData = UserDefaults.standard
-      .object(forKey: "customHeaders") as? Data,
-      let decodedHeaders = try? JSONDecoder().decode([CustomHeader].self, from: headersData)
-    else {
+    guard let credentials = backendApi.getActiveCredentials() else {
       return []
     }
-    return decodedHeaders
+    return credentials.customHeaders
   }
 
   // MARK: - EQ Implementation

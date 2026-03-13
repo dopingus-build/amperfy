@@ -225,11 +225,28 @@ public class AmperKit {
       notificationHandler: notificationHandler,
       urlCleanser: backendApi,
       limitCacheSize: true,
-      isFailWithPopupError: true
+      isFailWithPopupError: false
     )
 
-    let configuration = URLSessionConfiguration
-      .background(withIdentifier: "\(Bundle.main.bundleIdentifier!).PlayableDownloader.background")
+    // Check if custom headers are configured - background sessions strip custom headers
+    let hasCustomHeaders = !(storage.loginCredentials?.customHeaders ?? []).isEmpty
+    
+    let configuration: URLSessionConfiguration
+    if hasCustomHeaders {
+      // Use foreground session for custom headers (background sessions strip them)
+      configuration = URLSessionConfiguration.default
+      os_log(
+        "Using foreground URLSession for downloads (custom headers detected)",
+        log: OSLog(subsystem: "Amperfy", category: "Download"),
+        type: .info
+      )
+    } else {
+      // Use background session for standard downloads (supports background execution)
+      configuration = URLSessionConfiguration.background(
+        withIdentifier: "\(Bundle.main.bundleIdentifier!).PlayableDownloader.background"
+      )
+    }
+    
     let urlSession = URLSession(
       configuration: configuration,
       delegate: dlManager,

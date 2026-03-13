@@ -375,12 +375,7 @@ actor DownloadManager: NSObject, DownloadManageable {
         downloadInfo: downloadRequest.info,
         storage: storage
       )
-      var customHeaders: [CustomHeader] = []
-      if let headersData = UserDefaults.standard
-        .object(forKey: "customHeaders") as? Data,
-        let decodedHeaders = try? JSONDecoder().decode([CustomHeader].self, from: headersData) {
-        customHeaders = decodedHeaders
-      }
+      let customHeaders = await getDownloadDelegateCB().getCustomHeaders()
       let downloadTaskInfo = DownloadTaskInfo(
         request: downloadRequest,
         url: url,

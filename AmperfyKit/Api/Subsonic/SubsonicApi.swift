@@ -66,6 +66,10 @@ extension SubsonicApi: BackendApi {
     subsonicServerApi.provideCredentials(credentials: credentials)
   }
 
+  func getActiveCredentials() -> LoginCredentials? {
+    subsonicServerApi.getActiveCredentials()
+  }
+
   func isAuthenticationValid(credentials: LoginCredentials) async throws {
     try await subsonicServerApi.isAuthenticationValid(credentials: credentials)
   }

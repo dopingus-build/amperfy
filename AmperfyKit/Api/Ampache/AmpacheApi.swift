@@ -49,6 +49,10 @@ final class AmpacheApi: BackendApi {
     ampacheXmlServerApi.provideCredentials(credentials: credentials)
   }
 
+  func getActiveCredentials() -> LoginCredentials? {
+    ampacheXmlServerApi.getActiveCredentials()
+  }
+
   @MainActor
   func isAuthenticationValid(credentials: LoginCredentials) async throws {
     try await ampacheXmlServerApi.isAuthenticationValid(credentials: credentials)

@@ -259,6 +259,7 @@ public protocol BackendApi: URLCleanser, Sendable {
   var clientApiVersion: String { get }
   var serverApiVersion: String { get }
   func provideCredentials(credentials: LoginCredentials)
+  func getActiveCredentials() -> LoginCredentials?
   func isAuthenticationValid(credentials: LoginCredentials) async throws
   func generateUrl(forDownloadingPlayable playableInfo: AbstractPlayableInfo) async throws -> URL
   func generateUrl(

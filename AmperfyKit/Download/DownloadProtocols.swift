@@ -70,6 +70,7 @@ public protocol DownloadManagerDelegate: Sendable {
     storage: AsyncCoreDataAccessWrapper
   ) async
   func failedDownload(downloadInfo: DownloadElementInfo, storage: AsyncCoreDataAccessWrapper) async
+  func getCustomHeaders() async -> [CustomHeader]
 }
 
 // MARK: - Downloadable

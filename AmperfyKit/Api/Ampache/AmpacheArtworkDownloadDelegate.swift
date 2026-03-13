@@ -175,4 +175,8 @@ final class AmpacheArtworkDownloadDelegate: DownloadManagerDelegate {
       return response.data
     }
   }
+
+  func getCustomHeaders() async -> [CustomHeader] {
+    ampacheXmlServerApi.getActiveCredentials()?.customHeaders ?? []
+  }
 }

@@ -21,12 +21,15 @@
 
 import Foundation
 
+// MARK: - LoginCredentials
+
 public struct LoginCredentials: Sendable {
   public var serverUrl: String
   public var username: String
   public var password: String
   public var passwordHash: String
   public var backendApi: BackenApiType
+  public var customHeaders: [CustomHeader]
 
   public init() {
     self.serverUrl = ""
@@ -34,6 +37,7 @@ public struct LoginCredentials: Sendable {
     self.password = ""
     self.passwordHash = ""
     self.backendApi = .notDetected
+    self.customHeaders = []
   }
 
   public init(serverUrl: String, username: String, password: String) {
@@ -42,6 +46,7 @@ public struct LoginCredentials: Sendable {
     self.password = password
     self.passwordHash = StringHasher.sha256(dataString: password)
     self.backendApi = .notDetected
+    self.customHeaders = []
   }
 
   public init(serverUrl: String, username: String, password: String, backendApi: BackenApiType) {
@@ -49,8 +54,30 @@ public struct LoginCredentials: Sendable {
     self.backendApi = backendApi
   }
 
+  public init(
+    serverUrl: String, username: String, password: String, backendApi: BackenApiType,
+    customHeaders: [CustomHeader]
+  ) {
+    self.init(serverUrl: serverUrl, username: username, password: password, backendApi: backendApi)
+    self.customHeaders = customHeaders
+  }
+
   public mutating func changePasswordAndHash(password newPassword: String) {
     password = newPassword
     passwordHash = StringHasher.sha256(dataString: newPassword)
+  }
+}
+
+// MARK: - CustomHeader
+
+public struct CustomHeader: Codable, Sendable, Identifiable, Equatable {
+  public var id: UUID
+  public var key: String
+  public var value: String
+
+  public init(id: UUID = UUID(), key: String, value: String) {
+    self.id = id
+    self.key = key
+    self.value = value
   }
 }

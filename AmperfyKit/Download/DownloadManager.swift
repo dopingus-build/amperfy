@@ -375,7 +375,17 @@ actor DownloadManager: NSObject, DownloadManageable {
         downloadInfo: downloadRequest.info,
         storage: storage
       )
-      let downloadTaskInfo = DownloadTaskInfo(request: downloadRequest, url: url)
+      var customHeaders: [CustomHeader] = []
+      if let headersData = UserDefaults.standard
+        .object(forKey: "customHeaders") as? Data,
+        let decodedHeaders = try? JSONDecoder().decode([CustomHeader].self, from: headersData) {
+        customHeaders = decodedHeaders
+      }
+      let downloadTaskInfo = DownloadTaskInfo(
+        request: downloadRequest,
+        url: url,
+        customHeaders: customHeaders
+      )
       fetch(downloadTaskInfo: downloadTaskInfo)
     } catch {
       if let fetchError = error as? DownloadError {

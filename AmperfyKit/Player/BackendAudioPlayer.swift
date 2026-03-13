@@ -615,32 +615,48 @@ class BackendAudioPlayer: NSObject {
       audioSessionHandler.configureBackgroundPlayback()
     }
 
-    var asset: AVURLAsset?
-    if let mimeType = playable.iOsCompatibleContentType {
-      asset = AVURLAsset(url: url, options: ["AVURLAssetOutOfBandMIMETypeKey": mimeType])
-    } else {
-      asset = AVURLAsset(url: url)
-    }
-    playInPlayer(asset: asset, queueType: queueType)
-  }
+    let isLocalFile = url.isFileURL
 
-  private func playInPlayer(
-    asset: AVURLAsset?,
-    queueType: BackendAudioQueueType
-  ) {
-    guard let asset = asset else {
-      clearPlayer()
-      return
+    // Only apply custom headers to remote URLs (not local cached files)
+    let headersDict: [String: String]
+    if isLocalFile {
+      headersDict = [:]
+    } else {
+      let customHeaders = getCustomHeaders()
+      headersDict = Dictionary(
+        customHeaders.map { ($0.key, $0.value) },
+        uniquingKeysWith: { _, last in last }
+      )
     }
 
     switch queueType {
     case .play:
-      currentPreparedUrl = asset.url.absoluteString
-      player?.play(url: asset.url)
+      currentPreparedUrl = url.absoluteString
+      if !headersDict.isEmpty {
+        player?.play(url: url, headers: headersDict)
+        os_log(.default, "Playing with custom headers: %s", playable.displayString)
+      } else {
+        player?.play(url: url)
+      }
     case .queue:
-      nextPreloadedUrl = asset.url.absoluteString
-      player?.queue(url: asset.url)
+      nextPreloadedUrl = url.absoluteString
+      if !headersDict.isEmpty {
+        player?.queue(url: url, headers: headersDict)
+        os_log(.default, "Queueing with custom headers: %s", playable.displayString)
+      } else {
+        player?.queue(url: url)
+      }
     }
+  }
+
+  private func getCustomHeaders() -> [CustomHeader] {
+    guard let headersData = UserDefaults.standard
+      .object(forKey: "customHeaders") as? Data,
+      let decodedHeaders = try? JSONDecoder().decode([CustomHeader].self, from: headersData)
+    else {
+      return []
+    }
+    return decodedHeaders
   }
 
   // MARK: - EQ Implementation

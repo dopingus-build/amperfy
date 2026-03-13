@@ -25,7 +25,13 @@ import os.log
 
 extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
   func fetch(downloadTaskInfo: DownloadTaskInfo) {
-    let task = urlSession?.downloadTask(with: downloadTaskInfo.url)
+    var request = URLRequest(url: downloadTaskInfo.url)
+
+    for header in downloadTaskInfo.customHeaders {
+      request.setValue(header.value, forHTTPHeaderField: header.key)
+    }
+
+    let task = urlSession?.downloadTask(with: request)
     guard let task else { return }
     tasks[task] = downloadTaskInfo
     task.resume()

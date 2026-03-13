@@ -433,6 +433,7 @@ public class PersistentStorage {
     case Username = "username"
     case Password = "password"
     case BackendApi = "backendApi"
+    case CustomHeaders = "customHeaders"
     case LibraryIsSynced = "libraryIsSynced"
     case InitialSyncCompletionStatus = "initialSyncCompletionStatus"
     case ArtworkDownloadSetting = "artworkDownloadSetting"
@@ -1125,11 +1126,21 @@ public class PersistentStorage {
         let backendApiRaw = UserDefaults.standard
         .object(forKey: UserDefaultsKey.BackendApi.rawValue) as? Int,
         let backendApi = BackenApiType(rawValue: backendApiRaw) {
+        var customHeaders: [CustomHeader] = []
+        if let headersData = UserDefaults.standard
+          .object(forKey: UserDefaultsKey.CustomHeaders.rawValue) as? Data {
+          do {
+            customHeaders = try JSONDecoder().decode([CustomHeader].self, from: headersData)
+          } catch {
+            customHeaders = []
+          }
+        }
         return LoginCredentials(
           serverUrl: serverUrl,
           username: username,
           password: passwordHash,
-          backendApi: backendApi
+          backendApi: backendApi,
+          customHeaders: customHeaders
         )
       }
       return nil
@@ -1152,11 +1163,16 @@ public class PersistentStorage {
           newCredentials.backendApi.rawValue,
           forKey: UserDefaultsKey.BackendApi.rawValue
         )
+        do {
+          let encodedHeaders = try JSONEncoder().encode(newCredentials.customHeaders)
+          UserDefaults.standard.set(encodedHeaders, forKey: UserDefaultsKey.CustomHeaders.rawValue)
+        } catch {}
       } else {
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.ServerUrl.rawValue)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.Username.rawValue)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.Password.rawValue)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.BackendApi.rawValue)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.CustomHeaders.rawValue)
       }
     }
   }

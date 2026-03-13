@@ -58,6 +58,7 @@ extension UITextField {
 class LoginVC: UIViewController {
   var backendApi: BackendApi!
   var selectedApiType: BackenApiType = .notDetected
+  var pendingCustomHeaders: [CustomHeader] = []
 
   #if targetEnvironment(macCatalyst)
     static let fontSize: CGFloat = 14
@@ -165,6 +166,16 @@ class LoginVC: UIViewController {
     return button
   }()
 
+  fileprivate lazy var customHeadersButton: UIButton = {
+    var config = UIButton.Configuration.glass()
+    config.image = UIImage(systemName: "gearshape")
+    let button = UIButton(configuration: config)
+    button.setTitle("Custom Headers", for: .normal)
+    button.addTarget(self, action: #selector(Self.customHeadersPressed), for: .touchUpInside)
+    button.preferredBehavioralStyle = .pad
+    return button
+  }()
+
   fileprivate lazy var loginButton: UIButton = {
     var config = UIButton.Configuration.prominentGlass()
     config.image = .login
@@ -175,6 +186,34 @@ class LoginVC: UIViewController {
     button.preferredBehavioralStyle = .pad
     return button
   }()
+
+  @IBAction
+  func customHeadersPressed() {
+    serverUrlTF.resignFirstResponder()
+    usernameTF.resignFirstResponder()
+    passwordTF.resignFirstResponder()
+
+    let customHeadersVC = CustomHeadersLoginVC()
+    customHeadersVC.customHeaders = pendingCustomHeaders.isEmpty
+      ? (appDelegate.storage.loginCredentials?.customHeaders ?? [])
+      : pendingCustomHeaders
+    customHeadersVC.onHeadersSaved = { [weak self] headers in
+      self?.pendingCustomHeaders = headers
+      var credentials = self?.appDelegate.storage.loginCredentials
+      credentials?.customHeaders = headers
+      self?.appDelegate.storage.loginCredentials = credentials
+    }
+    customHeadersVC.title = "Custom Headers"
+    customHeadersVC.navigationItem.rightBarButtonItem = UIBarButtonItem(
+      barButtonSystemItem: .done,
+      target: self,
+      action: nil
+    )
+
+    let navigationController = UINavigationController(rootViewController: customHeadersVC)
+    navigationController.modalPresentationStyle = .formSheet
+    present(navigationController, animated: true)
+  }
 
   @IBAction
   func loginPressed() {
@@ -188,15 +227,11 @@ class LoginVC: UIViewController {
     self.serverUrlTF.translatesAutoresizingMaskIntoConstraints = false
     self.usernameTF.translatesAutoresizingMaskIntoConstraints = false
     self.passwordTF.translatesAutoresizingMaskIntoConstraints = false
-    apiLabel.translatesAutoresizingMaskIntoConstraints = false
-    self.apiSelectorButton.translatesAutoresizingMaskIntoConstraints = false
 
     let view = UIView()
     view.addSubview(serverUrlTF)
     view.addSubview(usernameTF)
     view.addSubview(passwordTF)
-    view.addSubview(apiLabel)
-    view.addSubview(apiSelectorButton)
 
     let padding: CGFloat = 0
     let elementHeight: CGFloat = 40
@@ -245,28 +280,8 @@ class LoginVC: UIViewController {
       ),
       passwordTF.heightAnchor.constraint(equalToConstant: elementHeight),
 
-      apiLabel.safeAreaLayoutGuide.topAnchor.constraint(
-        equalTo: passwordTF.bottomAnchor,
-        constant: spaceInBetween
-      ),
-      apiLabel.safeAreaLayoutGuide.leadingAnchor.constraint(
-        equalTo: view.safeAreaLayoutGuide.leadingAnchor,
-        constant: padding
-      ),
-      apiLabel.heightAnchor.constraint(equalToConstant: elementHeight),
-
-      apiSelectorButton.safeAreaLayoutGuide.topAnchor.constraint(
-        equalTo: passwordTF.bottomAnchor,
-        constant: spaceInBetween
-      ),
-      apiSelectorButton.safeAreaLayoutGuide.trailingAnchor.constraint(
-        equalTo: view.safeAreaLayoutGuide.trailingAnchor,
-        constant: -padding
-      ),
-      apiSelectorButton.heightAnchor.constraint(equalToConstant: elementHeight),
-
       view.heightAnchor
-        .constraint(equalToConstant: (4 * elementHeight) + (3 * spaceInBetween) + (2 * padding)),
+        .constraint(equalToConstant: (3 * elementHeight) + (2 * spaceInBetween) + (2 * padding)),
     ])
 
     return view
@@ -344,6 +359,47 @@ class LoginVC: UIViewController {
     loginButton
   }()
 
+  public lazy var customHeadersGlassContainer: UIView = {
+    customHeadersButton
+  }()
+
+  public lazy var bottomButtonContainer: UIView = {
+    let container = UIView()
+    container.translatesAutoresizingMaskIntoConstraints = false
+
+    customHeadersButton.translatesAutoresizingMaskIntoConstraints = false
+    apiSelectorButton.translatesAutoresizingMaskIntoConstraints = false
+    loginButton.translatesAutoresizingMaskIntoConstraints = false
+
+    container.addSubview(customHeadersButton)
+    container.addSubview(apiSelectorButton)
+    container.addSubview(loginButton)
+
+    NSLayoutConstraint.activate([
+      customHeadersButton.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      customHeadersButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      customHeadersButton.heightAnchor.constraint(equalToConstant: 40),
+
+      apiSelectorButton.leadingAnchor.constraint(
+        equalTo: customHeadersButton.trailingAnchor,
+        constant: 15
+      ),
+      apiSelectorButton.trailingAnchor.constraint(
+        equalTo: loginButton.leadingAnchor,
+        constant: -15
+      ),
+      apiSelectorButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      apiSelectorButton.heightAnchor.constraint(equalToConstant: 40),
+
+      loginButton.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      loginButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      loginButton.widthAnchor.constraint(equalToConstant: 100),
+      loginButton.heightAnchor.constraint(equalToConstant: 40),
+    ])
+
+    return container
+  }()
+
   func login() {
     guard let serverUrl = serverUrlTF.text?.trimmingCharacters(in: .whitespacesAndNewlines),
           !serverUrl.isEmpty else {
@@ -363,7 +419,13 @@ class LoginVC: UIViewController {
       return
     }
 
-    var credentials = LoginCredentials(serverUrl: serverUrl, username: username, password: password)
+    var credentials = LoginCredentials(
+      serverUrl: serverUrl, username: username, password: password,
+      backendApi: selectedApiType,
+      customHeaders: pendingCustomHeaders
+    )
+    appDelegate.backendApi.provideCredentials(credentials: credentials)
+
     Task { @MainActor in
       do {
         let authenticatedApiType = try await self.appDelegate.backendApi.login(
@@ -373,6 +435,7 @@ class LoginVC: UIViewController {
         self.appDelegate.backendApi.selectedApi = authenticatedApiType
         credentials.backendApi = authenticatedApiType
         self.appDelegate.storage.loginCredentials = credentials
+        // Provide updated credentials with detected backend API
         self.appDelegate.backendApi.provideCredentials(credentials: credentials)
 
         guard let mainScene = view.window?.windowScene?.delegate as? SceneDelegate else { return }
@@ -423,11 +486,11 @@ class LoginVC: UIViewController {
     amperfyLabel.translatesAutoresizingMaskIntoConstraints = false
     iconView.translatesAutoresizingMaskIntoConstraints = false
     formGlassContainer.translatesAutoresizingMaskIntoConstraints = false
-    loginGlassContainer.translatesAutoresizingMaskIntoConstraints = false
+    bottomButtonContainer.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(amperfyLabel)
     view.addSubview(iconView)
     view.addSubview(formGlassContainer)
-    view.addSubview(loginGlassContainer)
+    view.addSubview(bottomButtonContainer)
 
     formLeadingConstraing = formGlassContainer.leadingAnchor.constraint(
       equalTo: view.leadingAnchor,
@@ -462,13 +525,13 @@ class LoginVC: UIViewController {
       formLeadingConstraing!,
       formTrailingConstraing!,
 
-      loginGlassContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 0),
-      loginGlassContainer.topAnchor.constraint(
+      bottomButtonContainer.topAnchor.constraint(
         equalTo: formGlassContainer.bottomAnchor,
         constant: 30
       ),
-      loginGlassContainer.widthAnchor.constraint(equalToConstant: 140),
-      loginGlassContainer.heightAnchor.constraint(equalToConstant: 40),
+      bottomButtonContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 0),
+      bottomButtonContainer.widthAnchor.constraint(equalToConstant: 400),
+      bottomButtonContainer.heightAnchor.constraint(equalToConstant: 40),
 
       iconView.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 0),
       iconView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 0),

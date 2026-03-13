@@ -78,6 +78,12 @@ struct ServerSettingsView: View {
           NavigationLink(destination: ServerURLsSettingsView()) {
             Text("Manage Server URLs")
           }
+          NavigationLink(destination: CustomHeadersView(
+            headers: appDelegate.storage
+              .loginCredentials?.customHeaders ?? []
+          )) {
+            Text("Custom HTTP Headers")
+          }
         }
 
         SettingsSection {

@@ -743,7 +743,18 @@ final class AmpacheXmlServerApi: URLCleanser, Sendable {
 
   private func request(url: URL) async throws -> APIDataResponse {
     try await withUnsafeThrowingContinuation { continuation in
-      AF.request(url, method: .get).validate().responseData { response in
+      var headers: HTTPHeaders = []
+      if let creds = credentials.wrappedValue {
+        for header in creds.customHeaders {
+          headers.add(HTTPHeader(name: header.key, value: header.value))
+        }
+      }
+      let afRequest = headers.isEmpty ? AF.request(url, method: .get) : AF.request(
+        url,
+        method: .get,
+        headers: headers
+      )
+      afRequest.validate().responseData { response in
 
         if let data = response.data {
           continuation.resume(returning: APIDataResponse(data: data, url: url))
